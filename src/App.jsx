@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 
 import { initializeApp } from 'firebase/app'
 import { getAuth , GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { collection, query, orderBy, limit, getFirestore, onSnapshot, serverTimestamp, addDoc } from 'firebase/firestore'
 
 import { useAuthState } from 'react-firebase-hooks/auth';
 
@@ -54,10 +54,65 @@ function ChatRoom() {
     <>
       <SignOut />
       <h2>Chat Room</h2>
+      <ChatMessages />
+      <ChatInput />
     </>
   )
 }
 
+function ChatMessages() {
+  const [messages, setMessages] = useState([])
+  const messagesRef = collection(db, 'messages')
+  const q = query(messagesRef, orderBy('createdAt'), limit(25))
+  useEffect(() => {
+    const unsuscribe = onSnapshot(q, (snapshot) => {
+      let messages = [];
+      snapshot.forEach((doc) => {
+        messages.push({ ...doc.data(), id: doc.id });
+      });
+      console.log(messages);
+      setMessages(messages);
+    });
+
+    return () => unsuscribe();
+  }, []);
+
+  return (
+    <>
+      {messages && messages.map(msg => <ChatMessage key={msg.id} message={msg} />)}
+    </>
+  )
+}
+
+function ChatMessage(props) {
+  const { text, uid, photoURL } = props.message
+  const messageClass = uid === auth.currentUser.uid ? 'sent' : 'received'
+  return (
+    <div className={`message ${messageClass}`}>
+      <img src={photoURL} alt="user" />
+      <p>{text}</p>
+    </div>
+  )
+}
+
+function ChatInput() {
+  const [formValue, setFormValue] = useState('')
+  const sendMessage = async (e) => {
+    e.preventDefault()
+    await addDoc(collection(db, 'messages'), {
+      text: formValue,
+      createdAt: serverTimestamp(),
+      photoURL: formValue,
+    })
+    setFormValue('')
+  }
+  return (
+    <form onSubmit={sendMessage}>
+      <input value={formValue} onChange={(e) => setFormValue(e.target.value)} />
+      <button type="submit">Send</button>
+    </form>
+  )
+}
 
 
 export default App
