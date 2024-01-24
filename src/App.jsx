@@ -1,5 +1,5 @@
 /* React imports */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 import "./App.css";
 
@@ -35,9 +35,36 @@ function App() {
   const [user] = useAuthState(auth);
 
   return (
-    <div className="chat-area flex-1 flex flex-col">
-      {user ? <ChatRoom /> : <SignIn />}
-    </div>
+    <>
+      {/*
+  Heads up! 👋
+
+  Plugins:
+    - @tailwindcss/forms
+*/}
+
+      <header className="bg-gray-50 sticky">
+        <div className="mx-auto max-w-screen-xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="">
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              Welcome {user ? "Back, " + user.displayName : ", User"}
+            </h1>
+
+            <p className="mt-1.5 text-sm text-gray-500">
+              {user
+                ? "Type something! and leave a cool message 🚀"
+                : "Get started by logging in using google"}
+            </p>
+          </div>
+          <div className="mt-3">{user ? <SignOut /> : <SignIn />}</div>
+        </div>
+      </header>
+      <div className="chat-area flex-1 flex flex-col justify-center items-center">
+        <div className=" w-1/2">
+          <ChatRoom />
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -46,19 +73,60 @@ function SignIn() {
     const provider = new GoogleAuthProvider();
     signInWithPopup(auth, provider);
   };
-  return <button onClick={signInWithGoogle}>Sign in with Google</button>;
+  return (
+    <button
+      onClick={signInWithGoogle}
+      class="inline-flex items-center gap-2 rounded-md bg-blue-500 px-3 py-2 text-sm text-white shadow-sm focus:relative"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+        class="w-6 h-6"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+        />
+      </svg>
+      Sign in
+    </button>
+  );
 }
 
 function SignOut() {
   return (
-    auth.currentUser && <button onClick={() => auth.signOut()}>Sign Out</button>
+    auth.currentUser && (
+      <button
+        onClick={() => auth.signOut()}
+        class="inline-flex items-center gap-2 rounded-md bg-red-500 px-3 py-2 text-sm text-white shadow-sm focus:relative"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="w-6 h-6"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75"
+          />
+        </svg>
+        Sign Out
+      </button>
+    )
   );
 }
 
 function ChatRoom() {
   return (
     <>
-    <SignOut />
       <div className="flex-1 overflow-y-scroll">
         <ChatMessages />
       </div>
@@ -70,6 +138,7 @@ function ChatRoom() {
 function ChatMessages() {
   const [messages, setMessages] = useState([]);
   const messagesRef = collection(db, "messages");
+  const end = useRef();
   const q = query(messagesRef, orderBy("createdAt"), limit(25));
   useEffect(() => {
     const unsuscribe = onSnapshot(q, (snapshot) => {
@@ -77,8 +146,8 @@ function ChatMessages() {
       snapshot.forEach((doc) => {
         messages.push({ ...doc.data(), id: doc.id });
       });
-      console.log(messages);
       setMessages(messages);
+      end.current.scrollIntoView({ behavior: "smooth" });
     });
 
     return () => unsuscribe();
@@ -89,6 +158,7 @@ function ChatMessages() {
       <div className="overflow-y-scroll h-screen ">
         {messages &&
           messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)}
+        <div ref={end}></div>
       </div>
     </>
   );
@@ -96,9 +166,7 @@ function ChatMessages() {
 
 function ChatMessage(props) {
   const { text, createdAt, uid, photoURL, user } = props.message;
-  console.log(props.message);
-  console.log(user.uid == auth.currentUser.uid);
-  if (uid == auth.currentUser.uid) {
+  if (auth.currentUser != null && uid == auth.currentUser.uid) {
     return (
       <div className="message me mb-4 flex text-right">
         <div className="flex-1 px-1">
@@ -135,6 +203,7 @@ function ChatMessage(props) {
 
 function ChatInput() {
   const [formValue, setFormValue] = useState("");
+  const end = useRef();
   const sendMessage = async (e) => {
     e.preventDefault();
     await addDoc(collection(db, "messages"), {
@@ -145,9 +214,11 @@ function ChatInput() {
       user: auth.currentUser.displayName,
     });
     setFormValue("");
+
+    end.current.scrollIntoView({ behavior: "smooth" });
   };
   return (
-    <div className="border-t-2 border-gray-200 px-4 pt-4 mb-2 sm:mb-0">
+    <div className="border-t-2 border-gray-200 px-4 pt-4 mb-2 sm:mb-0 fixed bottom-5 w-1/2">
       <div className="relative flex">
         <form onSubmit={sendMessage} className="w-full">
           <input
